@@ -147,22 +147,31 @@ function geocode( recipient, address, debug ) {
         }
         data = JSON.parse(body);
 
-        var address_components = JSON.stringify(data.results[0].locations[0]);
+        if (typeof data.results !== 'undefined') {
 
-        if ( address_components.indexOf("US") > -1)  {
-          var geo = data.results[0].locations[0].latLng;
-          logger.info('geo:',geo);
-          getReps( recipient, geo, address, debug );
+          var address_components = JSON.stringify(data.results[0].locations[0]);
+
+          if ( address_components.indexOf("US") > -1)  {
+            var geo = data.results[0].locations[0].latLng;
+            logger.info('geo:',geo);
+            getReps( recipient, geo, address, debug );
+          } else {
+            logger.info('Not US. MapQuest address components:',address_components);
+            sendResponse( recipient, "I'm sorry, I can't find that address within the U.S.", null, debug );
+          }
+
         } else {
-          logger.info('Not US. MapQuest address components:',address_components);
-          sendResponse( recipient, "I'm sorry, I can't find that address within the U.S.", null, debug );
-        }
+
+          logger.info('MapQuest got no results.');
+          sendResponse( recipient, "I'm sorry, I can't find that address.", null, debug );
+
+        } // end typeof data.results !== 'undefined'
     
       }); // end mapquest request
 
     } // end no results from Google
 
-  });
+  }); // end Google request
 
 }
 
@@ -275,8 +284,8 @@ function getReps( recipient, geo, address, debug ) {
             }
           });
 
-      } // end if
-    }); // end request
+      } // end if error
+    }); // end civicAPI request
 }
 
  
@@ -381,11 +390,10 @@ function sendResponse( recipient, message, reps, debug ) {
   logger.info("textResponse:\n",message);
 
   var params = {
-      'src': '15202002223 ',
+      'src': '15202002223',
       'dst' : recipient,
       'text' : message
   };
-
 
   if (debug) {
       logger.info('Debug flag. No message sent.');
@@ -397,6 +405,6 @@ function sendResponse( recipient, message, reps, debug ) {
         logger.info('API Response:\n', response);
     });
 
-  }
+  } // end if debug
 
 }
