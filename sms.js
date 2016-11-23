@@ -76,7 +76,7 @@ function receiveSMS(req, res) {
 
   var testWords = ['','hi','hello','text','test','info','rep info','congressional representatives','state representatives'];
   var niceWords = ['nice','cool','neat','this is awesome'];
-  var thanksWords = ['thanks','thank you'];
+  var thanksWords = ['thanks','thank you','awesome thanks'];
 
   if ( niceWords.indexOf( incoming.text.toLowerCase().replace(/[.!]/g,"") ) > -1 ) {
     sendResponse( incoming.from, "Thanks!", null, incoming.debug );
@@ -151,14 +151,19 @@ function geocode( recipient, address, debug ) {
 
           var address_components = JSON.stringify(data.results[0].locations[0]);
 
-          if ( address_components.indexOf("US") > -1)  {
-            var geo = data.results[0].locations[0].latLng;
-            logger.info('geo:',geo);
-            getReps( recipient, geo, address, debug );
+          if (address_components !== 'undefined') {
+            if ( address_components.indexOf("US") > -1)  {
+              var geo = data.results[0].locations[0].latLng;
+              logger.info('geo:',geo);
+              getReps( recipient, geo, address, debug );
+            } else {
+              logger.info('Not US. MapQuest address components:',address_components);
+              sendResponse( recipient, "I'm sorry, I can't find that address within the U.S.", null, debug );
+            } // end address_components.indexOf("US") > -1
           } else {
-            logger.info('Not US. MapQuest address components:',address_components);
-            sendResponse( recipient, "I'm sorry, I can't find that address within the U.S.", null, debug );
-          }
+              logger.info('Not address_components:',address_components);
+              sendResponse( recipient, "I'm sorry, I don't understand that address. Would you try writing it a different way?", null, debug );
+          } // end address_components !== 'undefined'
 
         } else {
 
