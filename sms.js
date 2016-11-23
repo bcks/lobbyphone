@@ -9,6 +9,7 @@ var express     = require('express'),
     config      = require('./config.js'),
     port        = config.port;
 
+const plivoPhoneNumber = config.plivoPhoneNumber;
 
 
 //
@@ -21,7 +22,6 @@ var p = plivo.RestAPI({
 });
 
 var openstates = new OpenStates(config.sunlightAPI);
-
 
 
 
@@ -390,7 +390,7 @@ function sendResponse( recipient, message, reps, debug ) {
   logger.info("textResponse:\n",message);
 
   var params = {
-      'src': '15202002223',
+      'src': plivoPhoneNumber,
       'dst' : recipient,
       'text' : message
   };
