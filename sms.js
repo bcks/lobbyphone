@@ -2,7 +2,7 @@ var express     = require('express'),
     app         = express(),
     server      = require('http').createServer(app),
     winston     = require('winston'),
-    async       = require('async'),
+    each        = require('tiny-each-async'),
     request     = require('request'),
     OpenStates  = require('openstates'),
     plivo       = require('plivo'),
@@ -215,7 +215,7 @@ function getReps( recipient, geo, address, debug ) {
           var n = -1;
           var hasState = 0;
 
-          async.each(body.officials, function ( thisRep, thisRepCallback ){
+          each(body.officials, function ( thisRep, thisRepCallback ){
               var title, order = '';
               n++;
               
@@ -225,7 +225,7 @@ function getReps( recipient, geo, address, debug ) {
 
               } else {
               
-                async.each(body.offices, function ( thisOffice, thisOfficeCallback ){
+                each(body.offices, function ( thisOffice, thisOfficeCallback ){
               
                   if (typeof thisOffice.officialIndices !== 'undefined') {
                 
@@ -315,7 +315,7 @@ function getState(recipient, address, geo, reps, debug) {
       logger.info('OpenStates has reps.');
 
       if (typeof stateReps !== 'undefined') {
-        async.each(stateReps, function ( item, eachStateRepCallback ){
+        each(stateReps, function ( item, eachStateRepCallback ){
 
           var title, order = '';
           if (item.chamber == 'upper') {
