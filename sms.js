@@ -76,7 +76,7 @@ function receiveSMS(req, res) {
 
   var testWords = ['','hi','hello','text','test','info','rep info','congressional representatives','state representatives'];
   var niceWords = ['nice','cool','neat','this is awesome'];
-  var thanksWords = ['thanks','thank you','awesome thanks'];
+  var thanksWords = ['thanks','thank you','awesome thanks','thx'];
 
   if ( niceWords.indexOf( incoming.text.toLowerCase().replace(/[.!]/g,"") ) > -1 ) {
     sendResponse( incoming.from, "Thanks!", null, incoming.debug );
@@ -84,7 +84,7 @@ function receiveSMS(req, res) {
   } else if ( thanksWords.indexOf( incoming.text.toLowerCase().replace(/[.!]/g,"") ) > -1 ) {
     sendResponse( incoming.from, "You're welcome!", null, incoming.debug );
 
-  } else if (testWords.indexOf( incoming.text.toLowerCase().replace(/[.!]/g,"") ) > -1 ) {
+  } else if ( (testWords.indexOf( incoming.text.toLowerCase().replace(/[.!]/g,"") ) > -1 ) || ( incoming.text.length < 4 ) ) {
     sendResponse( incoming.from, 'Hi! Text me a US postal address and I will send back phone numbers for your state and federal legislators.', null, incoming.debug );
 
   } else {
@@ -201,7 +201,7 @@ function getReps( recipient, geo, address, debug ) {
           logger.info('getReps can\'t find reps for that address.');
           
           if ( /^\d+$/.test(address) ) {
-            sendResponse( recipient, "I'm sorry, sometimes zip code alone does not work. Try again with a postal address?", null, debug );
+            sendResponse( recipient, "I'm sorry, sometimes zip code alone does not always work. Try again with a postal address?", null, debug );
           } else {
             sendResponse( recipient, "I'm sorry, I can't find representatives for that address.", null, debug );          
           }
