@@ -87,6 +87,9 @@ function receiveSMS(req, res) {
   } else if ( (testWords.indexOf( incoming.text.toLowerCase().replace(/[.!]/g,"") ) > -1 ) || ( incoming.text.length < 4 ) ) {
     sendResponse( incoming.from, 'Hi! Text me a US postal address and I will send back phone numbers for your state and federal legislators.', null, incoming.debug );
 
+  } else if ( incoming.text.match(/\d+/g) == null ) { // no numbers at all.
+    sendResponse( incoming.from, 'I’m sorry, I only speak postal. Try texting me a US postal address and I will send back phone numbers for your state and federal legislators.', null, incoming.debug );
+
   } else {
     geocode( incoming.from, incoming.text, incoming.debug );
   }
