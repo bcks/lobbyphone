@@ -200,11 +200,14 @@ function getReps( recipient, geo, address, debug ) {
         
         body = JSON.parse(body);
 
-        if ((err) || (typeof body.error !== 'undefined')) {        
+        if ((err) || (typeof body.error !== 'undefined') || typeof body.officials == 'undefined') {        
           logger.info('getReps can\'t find reps for that address.');
           
           if ( /^\d+$/.test(address) ) {
-            sendResponse( recipient, "I'm sorry, sometimes zip code alone does not always work. Try again with a postal address?", null, debug );
+          
+            // try http://whoismyrepresentative.com/getall_mems.php?zip=47803
+          
+            sendResponse( recipient, "I'm sorry, I can't find representatives for that ZIP code. Sometimes ZIP code alone does not always work. Try again with a postal address?", null, debug );
           } else {
             sendResponse( recipient, "I'm sorry, I can't find representatives for that address.", null, debug );          
           }
@@ -334,7 +337,7 @@ function getState(recipient, address, geo, reps, debug) {
             title = 'Councilmember';
           }          
 
-          if (typeof item.offices !== 'undefined') {
+          if (typeof item.offices !== 'undefined' && typeof item.offices[0] !== 'undefined') {
 
             // need a better way to iterate to find phone
             var phone = item.offices[0].phone;
