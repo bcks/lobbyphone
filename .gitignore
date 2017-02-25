@@ -7,3 +7,5 @@ config.js
 logs
 *.log
 npm-debug.log*
+/sms-test.js
+/outbound-test.js

@@ -7,9 +7,11 @@ var express     = require('express'),
     OpenStates  = require('openstates'),
     plivo       = require('plivo'),
     config      = require('./config.js'),
+    zips        = require('./zips.json'),
     port        = config.port;
 
-const plivoPhoneNumber = config.plivoPhoneNumber;
+const plivoOutbound = config.plivoOutbound;
+const inboundPhone  = config.inboundPhone;
 
 
 //
@@ -30,14 +32,8 @@ var openstates = new OpenStates(config.sunlightAPI);
 //
 
 var logger = new (winston.Logger)({
-  transports: [
-    new (winston.transports.Console)({ json: false, timestamp: true }),
-    // new winston.transports.File({ filename: __dirname + '/log/debug.log', json: false })
-  ],
-  exceptionHandlers: [
-    new (winston.transports.Console)({ json: false, timestamp: true }),
-    // new winston.transports.File({ filename: __dirname + '/log/exceptions.log', json: false })
-  ],
+  transports: [ new (winston.transports.Console)({ json: false, timestamp: true }) ],
+  exceptionHandlers: [ new (winston.transports.Console)({ json: false, timestamp: true }) ],
   exitOnError: false
 });
 
@@ -58,7 +54,6 @@ app.post('/sms', receiveSMS);
 
 
 
-
 //
 // Receive Text Message
 // 
@@ -75,7 +70,7 @@ function receiveSMS(req, res) {
   logger.info('incomingSMS:',incoming);
 
   var testWords = ['','hi','hello','text','test','info','rep info','congressional representatives','state representatives'];
-  var niceWords = ['nice','cool','neat','this is awesome'];
+  var niceWords = ['nice','cool','neat','this is awesome','👍'];
   var thanksWords = ['thanks','thank you','awesome thanks','thx'];
 
   if ( niceWords.indexOf( incoming.text.toLowerCase().replace(/[.!]/g,"") ) > -1 ) {
@@ -85,10 +80,10 @@ function receiveSMS(req, res) {
     sendResponse( incoming.from, "You're welcome!", null, incoming.debug );
 
   } else if ( (testWords.indexOf( incoming.text.toLowerCase().replace(/[.!]/g,"") ) > -1 ) || ( incoming.text.length < 4 ) ) {
-    sendResponse( incoming.from, 'Hi! Text me a US postal address and I will send back phone numbers for your state and federal legislators.', null, incoming.debug );
+    sendResponse( incoming.from, 'Hi! Text a US postal address to '+inboundPhone+' and I will send back phone numbers for your state and federal legislators.', null, incoming.debug );
 
   } else if ( incoming.text.match(/\d+/g) == null ) { // no numbers at all.
-    sendResponse( incoming.from, 'I’m sorry, I only speak postal. Try texting me a US postal address and I will send back phone numbers for your state and federal legislators.', null, incoming.debug );
+    sendResponse( incoming.from, 'I’m sorry, I only speak postal. Text a US postal address to '+inboundPhone+' and I will send back phone numbers for your state & federal legislators.', null, incoming.debug );
 
   } else {
     geocode( incoming.from, incoming.text, incoming.debug );
@@ -109,15 +104,25 @@ function geocode( recipient, address, debug ) {
   
   logger.info('geocoder got address:',address);
 
+  // first try local zip:
 
-  // first try geocode with Google:
+  if ( /^\d{5}$/.test(address) && zips.filter( function(zips){ return zips.zip == address } )[0] !== undefined ) {
+    logger.info('local zip found.');
+    var geo = zips.filter( function(zips){ return zips.zip == address } )[0].geo;
+    getReps( recipient, geo, address, debug );
+
+  } else {
+
+
+
+  // then try geocode with Google:
 
   var url = 'https://maps.googleapis.com/maps/api/geocode/json?address='+address+'&key='+config.googleAPI;
 
   request(url, function (err, response, body) {
     if (err) {
       logger.info('Google maps error:', body);
-      sendResponse( recipient, "I'm sorry, I don't understand that address. Would you try writing it a different way?", null, debug );
+      sendResponse( recipient, 'I’m sorry, I don’t understand that address. Try texting it a different way to '+inboundPhone+'.', null, debug );
     }
     data = JSON.parse(body);
     
@@ -143,10 +148,15 @@ function geocode( recipient, address, debug ) {
       logger.info('Google couldn\'t find it. Trying MapQuest.');
 
       url = 'http://open.mapquestapi.com/geocoding/v1/address?key='+config.mapquestAPI+'&location='+address;
+
+      if ( /^\d+$/.test(address) || /^\d+\-\d+$/.test(address) ) {
+        url = 'http://open.mapquestapi.com/geocoding/v1/address?key='+config.mapquestAPI+'&postalCode='+address+'&country=USA';
+      }
+      
       request(url, function (err, response, body) {
         if (err) {
           logger.info('MapQuest error:', body);
-          sendResponse( recipient, "I'm sorry, I don't understand that address. Would you try writing it a different way?", null, debug );
+          sendResponse( recipient, 'I’m sorry, I don’t understand that address. Try texting it a different way to '+inboundPhone+'.', null, debug );
         }
         data = JSON.parse(body);
 
@@ -165,7 +175,7 @@ function geocode( recipient, address, debug ) {
             } // end address_components.indexOf("US") > -1
           } else {
               logger.info('Not address_components:',address_components);
-              sendResponse( recipient, "I'm sorry, I don't understand that address. Would you try writing it a different way?", null, debug );
+              sendResponse( recipient, 'I’m sorry, I don’t understand that address. Try texting it a different way to '+inboundPhone+'.', null, debug );
           } // end address_components !== 'undefined'
 
         } else {
@@ -180,6 +190,8 @@ function geocode( recipient, address, debug ) {
     } // end no results from Google
 
   }); // end Google request
+
+  } // end test local zip
 
 }
 
@@ -203,13 +215,11 @@ function getReps( recipient, geo, address, debug ) {
         if ((err) || (typeof body.error !== 'undefined') || typeof body.officials == 'undefined') {        
           logger.info('getReps can\'t find reps for that address.');
           
-          if ( /^\d+$/.test(address) ) {
-          
+          if ( /^\d+$/.test(address) || /^\d+\-\d+$/.test(address) ) {
             // try http://whoismyrepresentative.com/getall_mems.php?zip=47803
-          
-            sendResponse( recipient, "I'm sorry, I can't find representatives for that ZIP code. Sometimes ZIP code alone does not always work. Try again with a postal address?", null, debug );
+            sendResponse( recipient, 'I’m sorry, I can’t find representatives for that ZIP code. Sometimes ZIP code alone does not always work. Try texting a postal address to '+inboundPhone+'.', null, debug );
           } else {
-            sendResponse( recipient, "I'm sorry, I can't find representatives for that address.", null, debug );          
+            sendResponse( recipient, 'I’m sorry, I can’t find representatives for that address.', null, debug );          
           }
 
         } else {
@@ -384,24 +394,36 @@ function getState(recipient, address, geo, reps, debug) {
 
 function sendResponse( recipient, message, reps, debug ) {
 
+  var greetings = ['Call your representatives:','Phone your reps:','They work for you!','Call your reps:'];
+
   if (reps) {
     reps = reps.sort(function(a, b) { return (a.order > b.order) ? 1 : ((a.order < b.order) ? -1 : 0); });
 
     if (reps.length == 1) { 
       message = 'Call your representative:\n';
     } else {
-      message = 'Call your representatives:\n';      
+      message = greetings[Math.floor(Math.random() * greetings.length)] + '\n';      
     }
 
     reps.forEach( function ( item, pos ){
         message += item.name + ': ' + item.phone + "\n";
     });
+
+
   }
 
-  logger.info("textResponse:\n",message);
 
+  var numberId = Math.floor(Math.random() * plivoOutbound.length);
+  var outboundPhoneNumber = plivoOutbound[numberId];
+  
+//  if (numberId == 0) {
+//    message += "\nHelp keep this service free: https://www.gofundme.com/smsbot";
+//  }
+
+  logger.info("textResponse:\n",message);
+  
   var params = {
-      'src': plivoPhoneNumber,
+      'src': outboundPhoneNumber,
       'dst' : recipient,
       'text' : message
   };
@@ -412,6 +434,7 @@ function sendResponse( recipient, message, reps, debug ) {
 
     // Send the SMS to Plivo
     p.send_message(params, function (status, response) {
+        logger.info('outboundPhoneNumber: ', outboundPhoneNumber);
         logger.info('Status: ', status);
         logger.info('API Response:\n', response);
     });
